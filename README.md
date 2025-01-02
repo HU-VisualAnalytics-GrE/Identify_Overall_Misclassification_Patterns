@@ -1,4 +1,4 @@
-# Semester Project Group E
+# Semester Project Group-E
 
 ## Development and Implementation Documentation
 Look at the [Local Installation Instructions](docs/local-install-instructions.md) for further information on how to run the environment.
