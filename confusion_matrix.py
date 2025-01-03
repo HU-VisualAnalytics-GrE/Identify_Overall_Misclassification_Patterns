@@ -2,12 +2,14 @@ import pandas as pd
 import seaborn as sns
 import matplotlib.pyplot as plt
 import numpy as np
+import plotly.express as px
 import plotly.graph_objects as go
+import streamlit as st
 
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import classification_report, confusion_matrix, accuracy_score
-import plotly.express as px
+
 
 
 
@@ -46,18 +48,20 @@ def analyze_misclassifications(y_test, predictions):
     # Generiere Konfusionsmatrix
     cm = confusion_matrix(y_test, predictions)
     cmn = cm.astype('float') / cm.sum(axis=1)[:, np.newaxis]
-
+    st.title("Missklassifizierungen")
     # Visualisierung
     fig = px.imshow(cm, text_auto=True, color_continuous_scale="blues")
     fig.update_layout(
     xaxis_title="Tatsächliche Klasse", yaxis_title="Vorhergesagte Klasse"
 )
-    fig.show()
+    st.plotly_chart(fig)
     # Normalisierte Heatmap
     fig = px.imshow(cmn, text_auto='.2f', color_continuous_scale="blues")
     fig.update_layout(
         xaxis_title="Tatsächliche Klasse", yaxis_title="Vorhergesagte Klasse"
     )
-    fig.show()
+    st.plotly_chart(fig)
+    return cm
 
-analyze_misclassifications(y_test, predictions)
+
+cm = analyze_misclassifications(y_test, predictions)
