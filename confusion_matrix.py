@@ -49,19 +49,31 @@ def analyze_misclassifications(y_test, predictions):
     cm = confusion_matrix(y_test, predictions)
     cmn = cm.astype('float') / cm.sum(axis=1)[:, np.newaxis]
     st.title("Missklassifizierungen")
+    return cm,cmn
     # Visualisierung
+def confussion_matrix(cm):
     fig = px.imshow(cm, text_auto=True, color_continuous_scale="blues")
     fig.update_layout(
     xaxis_title="Tatsächliche Klasse", yaxis_title="Vorhergesagte Klasse"
 )
     st.plotly_chart(fig)
+    return cm
+
+def confussion_matrix_normalized(cmn):
     # Normalisierte Heatmap
     fig = px.imshow(cmn, text_auto='.2f', color_continuous_scale="blues")
     fig.update_layout(
         xaxis_title="Tatsächliche Klasse", yaxis_title="Vorhergesagte Klasse"
     )
     st.plotly_chart(fig)
-    return cm
+    return cmn
 
 
-cm = analyze_misclassifications(y_test, predictions)
+cm,cmn = analyze_misclassifications(y_test, predictions)
+st.sidebar.title("Options")
+option_cmn = st.sidebar.checkbox("Normalize", value=True)
+
+if option_cmn:
+    confussion_matrix_normalized(cmn)
+else:
+    confussion_matrix(cm)
