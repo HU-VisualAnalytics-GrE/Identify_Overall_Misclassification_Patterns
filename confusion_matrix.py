@@ -9,6 +9,7 @@ import streamlit as st
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import classification_report, confusion_matrix, accuracy_score
+from streamlit_plotly_events import plotly_events
 
 
 
@@ -57,7 +58,9 @@ def confussion_matrix(cm):
     xaxis_title="Tatsächliche Klasse", yaxis_title="Vorhergesagte Klasse"
 )
     st.plotly_chart(fig)
-    return cm
+    selected_points = plotly_events(fig)
+    st.write(selected_points)
+    return cm, selected_points
 
 def confussion_matrix_normalized(cmn):
     # Normalisierte Heatmap
@@ -66,7 +69,9 @@ def confussion_matrix_normalized(cmn):
         xaxis_title="Tatsächliche Klasse", yaxis_title="Vorhergesagte Klasse"
     )
     st.plotly_chart(fig)
-    return cmn
+    selected_points = plotly_events(fig)
+    st.write(selected_points)
+    return cmn,selected_points
 
 
 cm,cmn = analyze_misclassifications(y_test, predictions)
