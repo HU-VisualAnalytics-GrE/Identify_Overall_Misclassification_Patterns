@@ -1,0 +1,12 @@
+name: semester_project_group_e
+
+channels:
+  - conda-forge
+  - defaults
+
+dependencies:
+  - scikit-learn >= 1.3
+  - pandas >= 1
+  - streamlit >= 1.41
+  - plotly >= 5.24
+  - matplotlib >= 3.10
