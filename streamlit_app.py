@@ -11,8 +11,7 @@ from sklearn.model_selection import train_test_split
 from sklearn.metrics import classification_report, confusion_matrix, accuracy_score
 from streamlit_plotly_events import plotly_events
 
-
-
+from sklearn.decomposition import PCA
 
 df_target = pd.read_csv("lucas_organic_carbon_target.csv")
 df_test = pd.read_csv("lucas_organic_carbon_training_and_test_data.csv")
@@ -119,3 +118,105 @@ if option_cmn:
     confussion_matrix_normalized(cmn)
 else:
     confussion_matrix(cm)
+
+def prepare_pca_data(X_test, y_test, predictions):
+    # Perform PCA
+    pca = PCA(n_components=2, random_state=42)
+    pca_features = pca.fit_transform(X_test)
+    
+    # Create DataFrame with PCA results and labels
+    df = pd.DataFrame({
+        'PC1': pca_features[:, 0],
+        'PC2': pca_features[:, 1],
+        'TrueLabel': y_test,
+        'PredictedLabel': predictions
+    })
+    return df
+
+def adjust_df_for_plot(df, true_label="very_low", predicted_label="very_low"):
+    filtered_df = df[(df['TrueLabel'] == true_label) | (df['PredictedLabel'] == predicted_label)].copy()
+    filtered_df['classification'] = np.select(
+            condlist=[
+                (filtered_df['TrueLabel'] == true_label) & (filtered_df['PredictedLabel'] == predicted_label),
+                (filtered_df['TrueLabel'] == true_label) & (filtered_df['PredictedLabel'] != predicted_label),
+                (filtered_df['TrueLabel'] != true_label) & (filtered_df['PredictedLabel'] == predicted_label),
+            ],
+            choicelist=['True Positives', 'False Negatives', 'False Positives'],
+            default='Other'
+        )
+    return filtered_df
+
+def scatter_plot_df(df, true_label="very_low", predicted_label="very_low"):
+    color_map = {
+        'True Positives': '#00FF00',
+        'False Negatives': '#FF0000',
+        'False Positives': '#0000FF'
+    }
+    
+    hover_data = {
+        'PC1': True,
+        'PC2': True,
+        'TrueLabel': True,
+        'PredictedLabel': True,
+        'classification': True
+    }
+    
+    fig = px.scatter(
+        df,
+        x='PC1',
+        y='PC2',
+        color='classification',
+        color_discrete_map=color_map,
+        hover_data=hover_data,
+        title=f'PCA Visualization for True: {true_label}, Predicted: {predicted_label}'
+    )
+    
+    fig.update_layout(
+        legend_title="Classification",
+        legend=dict(
+            orientation="h",
+            yanchor="bottom",
+            y=-0.2,
+            xanchor="center",
+            x=0.5
+        ),
+        margin=dict(b=100)
+    )
+    
+    return fig
+
+# Add this after your confusion matrix code
+st.title("Hauptkomponentenanalyse Visualisierung")
+
+# Prepare PCA data
+pca_df = prepare_pca_data(X_test, y_test, predictions)
+
+# Get unique labels
+unique_labels = sorted(pca_df['TrueLabel'].unique())
+
+# Add controls to sidebar
+st.sidebar.header("PCA Visualization Options")
+true_label = st.sidebar.selectbox(
+    "Select True Label",
+    unique_labels,
+    index=0
+)
+
+predicted_label = st.sidebar.selectbox(
+    "Select Predicted Label",
+    unique_labels,
+    index=0
+)
+
+# Filter and create visualization
+filtered_df = adjust_df_for_plot(pca_df, true_label, predicted_label)
+fig = scatter_plot_df(filtered_df, true_label, predicted_label)
+st.plotly_chart(fig, use_container_width=True)
+
+# Display statistics
+st.subheader("Classification Statistics")
+stats = filtered_df['classification'].value_counts()
+st.write(pd.DataFrame({
+    'Classification': stats.index,
+    'Count': stats.values
+}))
