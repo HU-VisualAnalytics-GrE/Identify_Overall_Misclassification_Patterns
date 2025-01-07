@@ -64,11 +64,15 @@ def import_version(pkg, min_ver, fail_msg=""):
 
 # add your requirements here
 requirements = {
-    "numpy": "1.16",
-    "scipy": "1.2",
-    "streamlit": "1.41",
-    "plotly": "5.24",
-    "matplotlib": "3.10",
+    "matplotlib": "3.10.0",
+    "numpy": "2.2.1",
+    "packaging": "24.2",
+    "pandas": "2.2.3",
+    "plotly": "5.24.1",
+    "scikit_learn": "1.6.0",
+    "seaborn": "0.13.2",
+    "streamlit": "1.41.1",
+    "streamlit_plotly_events": "0.0.6"
 }
 
 # now the dependencies
