@@ -1,3 +1,4 @@
+# -------------- Imports --------------
 import pandas as pd
 import seaborn as sns
 import matplotlib.pyplot as plt
@@ -5,53 +6,56 @@ import numpy as np
 import plotly.express as px
 import plotly.graph_objects as go
 import streamlit as st
-
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import classification_report, confusion_matrix, accuracy_score
 from streamlit_plotly_events import plotly_events
-
 from sklearn.decomposition import PCA
 
-df_target = pd.read_csv("lucas_organic_carbon_target.csv")
-df_test = pd.read_csv("lucas_organic_carbon_training_and_test_data.csv")
+# -------------- Constants --------------
+CLASS_MAPPING = {
+    0: 'very_high',
+    1: 'high',
+    2: 'moderate',
+    3: 'low',
+    4: 'very_low'
+}
 
-# Daten vorbereiten
-X = df_test  # Features
-y = df_target['x']  # Labels/Zielvariable
+# -------------- Helper Functions --------------
+def get_label_from_index(index):
+    return CLASS_MAPPING[index]
 
-# Train-Test Split
-X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.21, random_state=42)
+# -------------- Data Loading and Preparation --------------
+def load_and_prepare_data():
+    df_target = pd.read_csv("lucas_organic_carbon_target.csv")
+    df_test = pd.read_csv("lucas_organic_carbon_training_and_test_data.csv")
+    
+    X = df_test  # Features
+    y = df_target['x']  # Labels
+    
+    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.21, random_state=42)
+    return X_train, X_test, y_train, y_test
 
-# Random Forest Modell erstellen und trainieren
-rf_model = RandomForestClassifier(
-    n_estimators=100,      # Anzahl der Bäume
-    max_depth=None,        # Maximale Tiefe der Bäume
-    random_state=42,       # Für Reproduzierbarkeit
-    n_jobs=-1              # Nutzt alle verfügbaren CPU-Kerne
-)
+# -------------- Model Training --------------
+def train_model(X_train, y_train):
+    rf_model = RandomForestClassifier(
+        n_estimators=100,
+        max_depth=None,
+        random_state=42,
+        n_jobs=-1
+    )
+    rf_model.fit(X_train, y_train)
+    return rf_model
 
-# Modell trainieren
-rf_model.fit(X_train, y_train)
-
-# Vorhersagen machen
-predictions = rf_model.predict(X_test)
-
-# Modell evaluieren
-#print("Accuracy:")
-#print(accuracy_score(y_test, predictions))
-
-#print("Klassifikationsbericht:")
-#print(classification_report(y_test, predictions))
-
+# -------------- Confusion Matrix Functions --------------
 def analyze_misclassifications(y_test, predictions):
-    # Generiere Konfusionsmatrix
     cm = confusion_matrix(y_test, predictions)
     cmn = cm.astype('float') / cm.sum(axis=1)[:, np.newaxis]
-    st.title("Missklassifizierungen")
-    return cm,cmn
+    st.title("Classification Errors")
+    return cm, cmn
+
 def confussion_matrix(cm):
-    class_names = ['very high', 'high', 'medium', 'low', 'very low']
+    class_names = ['very high', 'high', 'moderate', 'low', 'very low']
     fig = px.imshow(cm, text_auto='.2f', color_continuous_scale="blues")
     fig.update_layout(
         xaxis_title="Tatsächliche Klasse",
@@ -59,81 +63,75 @@ def confussion_matrix(cm):
         xaxis=dict(ticktext=class_names, tickvals=list(range(len(class_names)))),
         yaxis=dict(ticktext=class_names, tickvals=list(range(len(class_names))))
     )
-
     fig.update_traces(
-        hovertemplate=
-        '<b>Vorhergesagte Klasse: %{y}</b><br>' +
-        'Tatsächliche Klasse: %{x}<br>' +
-        'Wert: %{z}<extra></extra>',  # Anzeige der Zelle, auf die der Benutzer zeigt
-        hoverlabel=dict(
-            bgcolor="grey",  # Hintergrundfarbe der Hover-Box
-            font_size=16,      # Schriftgröße
-            font_family="Rockwell"  # Schriftart der Hover-Box
-        ),
-        showscale=True,  # Farbschattierung anzeigen
-        colorscale="Blues",  # Festgelegte Farben für das Diagramm
-        colorbar=dict(title="Normierte Häufigkeit"),  # Farbbalken einfügen
+        hovertemplate='<b>Vorhergesagte Klasse: %{y}</b><br>Tatsächliche Klasse: %{x}<br>Wert: %{z}<extra></extra>',
+        hoverlabel=dict(bgcolor="grey", font_size=16, font_family="Rockwell"),
+        showscale=True,
+        colorscale="Blues",
+        colorbar=dict(title="Normierte Häufigkeit"),
     )
-
-    st.plotly_chart(fig)
-    #selected_points = plotly_events(fig)
-    #st.write(selected_points)
-    return cm#, selected_points
+    
+    #st.plotly_chart(fig)
+    selected_points = plotly_events(fig)
+    
+    if selected_points:
+        point = selected_points[0]
+        true_label = get_label_from_index(int(point['x']))
+        pred_label = get_label_from_index(int(point['y']))
+        show_pca_for_labels(true_label, pred_label)
 
 def confussion_matrix_normalized(cmn):
-    # Normalisierte Heatmap
     class_names = ['very high', 'high', 'medium', 'low', 'very low']
     fig = px.imshow(cmn, text_auto='.2f', color_continuous_scale="blues")
     fig.update_layout(
+        plot_bgcolor='rgba(0, 0, 0, 0)',
+        paper_bgcolor='rgba(0, 0, 0, 0)',
+        font=dict(color='white'),
+        legend_title="Classification",
+        legend=dict(
+            orientation="h",
+            yanchor="bottom",
+            y=-0.2,
+            xanchor="center",
+            x=0.5
+        ),
+        margin=dict(b=100),
         xaxis_title="Tatsächliche Klasse",
         yaxis_title="Vorhergesagte Klasse",
         xaxis=dict(ticktext=class_names, tickvals=list(range(len(class_names)))),
         yaxis=dict(ticktext=class_names, tickvals=list(range(len(class_names))))
     )
+    
     fig.update_traces(
-        hovertemplate=
-        '<b>Vorhergesagte Klasse: %{y}</b><br>' +
-        'Tatsächliche Klasse: %{x}<br>' +
-        'Wert: %{z}<extra></extra>',  # Anzeige der Zelle, auf die der Benutzer zeigt
-        hoverlabel=dict(
-            bgcolor="grey",  # Hintergrundfarbe der Hover-Box
-            font_size=16,      # Schriftgröße
-            font_family="Rockwell"  # Schriftart der Hover-Box
-        ),
-        showscale=True,  # Farbschattierung anzeigen
-        colorscale="Blues",  # Festgelegte Farben für das Diagramm
-        colorbar=dict(title="Normierte Häufigkeit"),  # Farbbalken einfügen
+        hovertemplate='<b>Vorhergesagte Klasse: %{y}</b><br>Tatsächliche Klasse: %{x}<br>Wert: %{z}<extra></extra>',
+        hoverlabel=dict(bgcolor="lightgrey", font_size=16, font_family="Rockwell"),
+        showscale=True,
+        colorscale="Blues",
+        colorbar=dict(title="Normierte Häufigkeit"),
     )
-    st.plotly_chart(fig)
-    #selected_points = plotly_events(fig)
-    #st.write(selected_points)
-    return cmn#,selected_points
+    
+    #st.plotly_chart(fig)
+    selected_points = plotly_events(fig)
+    
+    if selected_points:
+        point = selected_points[0]
+        true_label = get_label_from_index(int(point['x']))
+        pred_label = get_label_from_index(int(point['y']))
+        show_pca_for_labels(true_label, pred_label)
 
-
-cm,cmn = analyze_misclassifications(y_test, predictions)
-st.sidebar.title("Options")
-option_cmn = st.sidebar.checkbox("Normalize", value=True)
-
-if option_cmn:
-    confussion_matrix_normalized(cmn)
-else:
-    confussion_matrix(cm)
-
+# -------------- PCA Functions --------------
 def prepare_pca_data(X_test, y_test, predictions):
-    # Perform PCA
     pca = PCA(n_components=2, random_state=42)
     pca_features = pca.fit_transform(X_test)
-    
-    # Create DataFrame with PCA results and labels
-    df = pd.DataFrame({
+
+    return pd.DataFrame({
         'PC1': pca_features[:, 0],
         'PC2': pca_features[:, 1],
         'TrueLabel': y_test,
         'PredictedLabel': predictions
     })
-    return df
 
-def adjust_df_for_plot(df, true_label="very_low", predicted_label="very_low"):
+def adjust_df_for_plot(df, true_label, predicted_label):
     filtered_df = df[(df['TrueLabel'] == true_label) | (df['PredictedLabel'] == predicted_label)].copy()
     filtered_df['classification'] = np.select(
             condlist=[
@@ -146,7 +144,7 @@ def adjust_df_for_plot(df, true_label="very_low", predicted_label="very_low"):
         )
     return filtered_df
 
-def scatter_plot_df(df, true_label="very_low", predicted_label="very_low"):
+def scatter_plot_df(df, true_label, predicted_label):
     color_map = {
         'True Positives': '#00FF00',
         'False Negatives': '#FF0000',
@@ -185,38 +183,37 @@ def scatter_plot_df(df, true_label="very_low", predicted_label="very_low"):
     
     return fig
 
-# Add this after your confusion matrix code
-st.title("Hauptkomponentenanalyse Visualisierung")
+def show_pca_for_labels(true_label, pred_label):
+    pca_df = prepare_pca_data(X_test, y_test, predictions)
+    filtered_df = adjust_df_for_plot(pca_df, true_label, pred_label)
+    fig = scatter_plot_df(filtered_df, true_label, pred_label)
+    st.plotly_chart(fig, use_container_width=True)
+    
+    st.subheader("Classification Statistics")
+    stats = filtered_df['classification'].value_counts()
+    st.write(pd.DataFrame({
+        'Classification': stats.index,
+        'Count': stats.values
+    }))
 
-# Prepare PCA data
-pca_df = prepare_pca_data(X_test, y_test, predictions)
-
-# Get unique labels
-unique_labels = sorted(pca_df['TrueLabel'].unique())
-
-# Add controls to sidebar
-st.sidebar.header("PCA Visualization Options")
-true_label = st.sidebar.selectbox(
-    "Select True Label",
-    unique_labels,
-    index=0
-)
-
-predicted_label = st.sidebar.selectbox(
-    "Select Predicted Label",
-    unique_labels,
-    index=0
-)
-
-# Filter and create visualization
-filtered_df = adjust_df_for_plot(pca_df, true_label, predicted_label)
-fig = scatter_plot_df(filtered_df, true_label, predicted_label)
-st.plotly_chart(fig, use_container_width=True)
-
-# Display statistics
-st.subheader("Classification Statistics")
-stats = filtered_df['classification'].value_counts()
-st.write(pd.DataFrame({
-    'Classification': stats.index,
-    'Count': stats.values
-}))
+# -------------- Main Execution --------------
+if __name__ == "__main__":
+    # Load and prepare data
+    X_train, X_test, y_train, y_test = load_and_prepare_data()
+    
+    # Train model and make predictions
+    rf_model = train_model(X_train, y_train)
+    predictions = rf_model.predict(X_test)
+    
+    # Create confusion matrix
+    cm, cmn = analyze_misclassifications(y_test, predictions)
+    
+    # Setup Streamlit interface
+    st.sidebar.title("Options")
+    option_cmn = st.sidebar.checkbox("Normalize", value=True)
+    
+    # Display appropriate matrix
+    if option_cmn:
+        confussion_matrix_normalized(cmn)
+    else:
+        confussion_matrix(cm)
